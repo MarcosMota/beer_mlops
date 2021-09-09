@@ -1,5 +1,5 @@
 project_name = "beer"
-fn_extraction_path = "./src/preprocess/extraction"
-fn_transform_path = "./src/preprocess/transform"
+fn_extraction_path = "../src/preprocess/extraction"
+fn_transform_path = "../src/preprocess/transform"
 environment = "prod"
 profile = "marcosmota"

@@ -68,6 +68,10 @@ module "data_ingestion" {
     lambda_name = module.policies.name_lambda_role
     firehouse_arn = module.policies.iam_firehouse_role
   }
+}
 
-
+module "modelling" {
+  source = "./modules/modeling"
+  role_sagemake_arn = module.policies.iam_sagemaker_role
+  profile = var.profile
 }

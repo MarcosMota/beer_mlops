@@ -1,4 +1,8 @@
 variable "profile" {
-    default = "marcosmota"
+  default = "marcosmota"
+  type    = string
+}
+
+variable "region" {
   type = string
 }

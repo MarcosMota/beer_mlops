@@ -50,6 +50,7 @@ module "data_ingestion" {
   source = "./modules/data_ingestion"
   project_name = var.project_name
   region = var.region
+
   fn_transform = {
     name = "fn_transform"
     path = data.archive_file.fn_transform_zip.output_path
@@ -67,11 +68,14 @@ module "data_ingestion" {
     lambda_arn = module.policies.iam_lambda_role
     lambda_name = module.policies.name_lambda_role
     firehouse_arn = module.policies.iam_firehouse_role
+    glue_arn = module.policies.iam_glue_role
   }
 }
 
 module "modelling" {
   source = "./modules/modeling"
   role_sagemake_arn = module.policies.iam_sagemaker_role
+  project_name = var.project_name
+  repository_url = "https://github.com/MarcosMota/beer_mlops.git"
   profile = var.profile
 }

@@ -16,7 +16,7 @@ resource "aws_glue_catalog_table" "aws_glue_catalog_table" {
   }
 
   storage_descriptor {
-    location      = "s3://${var.project_name}-transformed"
+    location      = "s3://${var.project_name}-transformed/"
     input_format  = "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat"
     output_format = "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat"
 
@@ -69,5 +69,15 @@ resource "aws_glue_catalog_table" "aws_glue_catalog_table" {
       type    = "float"
     }
 
+  }
+}
+
+resource "aws_glue_crawler" "crawler" {
+  database_name = aws_glue_catalog_database.aws_glue_catalog_database.name
+  name = "${var.project_name}-crawler"
+  role = var.role.glue_arn
+
+  s3_target {
+    path = "s3://${var.project_name}-transformed/"
   }
 }

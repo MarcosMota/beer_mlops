@@ -1,4 +1,5 @@
 resource "aws_iam_role" "sagemaker_role" {
+  name = "sagemaker_role"
   assume_role_policy = data.aws_iam_policy_document.assume_role.json
 }
 data "aws_caller_identity" "current" {}
@@ -25,9 +26,7 @@ resource "aws_iam_policy" "sagemaker_policy" {
   policy = data.aws_iam_policy_document.sagemaker_role_policy.json
 }
 
-variable "region" {
-  default = ""
-}
+
 data "aws_iam_policy_document" "sagemaker_role_policy" {
   statement {
     effect = "Allow"

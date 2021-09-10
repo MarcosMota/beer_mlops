@@ -1,8 +1,10 @@
+
 variable "role" {
   type = object({
     lambda_arn = string
     lambda_name = string
     firehouse_arn = string
+    glue_arn = string
   })
 }
 

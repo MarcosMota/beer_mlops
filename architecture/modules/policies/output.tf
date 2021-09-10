@@ -6,6 +6,10 @@ output "iam_sagemaker_role" {
   value = aws_iam_role.sagemaker_role.arn
 }
 
+output "iam_glue_role" {
+  value = aws_iam_role.glue_role.arn
+}
+
 output "name_lambda_role" {
   value = aws_iam_role.lambda_role.name
 }

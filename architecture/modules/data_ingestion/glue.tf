@@ -71,13 +71,3 @@ resource "aws_glue_catalog_table" "aws_glue_catalog_table" {
 
   }
 }
-
-resource "aws_glue_crawler" "crawler" {
-  database_name = aws_glue_catalog_database.aws_glue_catalog_database.name
-  name = "${var.project_name}-crawler"
-  role = var.role.glue_arn
-
-  s3_target {
-    path = "s3://${var.project_name}-transformed/"
-  }
-}

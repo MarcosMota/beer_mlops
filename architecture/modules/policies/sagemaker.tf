@@ -136,3 +136,8 @@ data "aws_iam_policy_document" "sagemaker_role_policy" {
     ]
   }
 }
+resource "aws_iam_role_policy_attachment" "sagemake-full-acess-policy-attachment" {
+  role       = aws_iam_role.sagemaker_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSageMakerFullAccess"
+}
+

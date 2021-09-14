@@ -20,6 +20,7 @@ module "policies" {
   # to a specific version of the modules, such as the following example:
   # source = "git::git@github.com:hashicorp/terraform-aws-consul.git//modules/consul-cluster?ref=v0.0.1"
   source = "./modules/policies"
+  region = var.region
 }
 
 

@@ -53,22 +53,6 @@ if __name__ == "__main__":
     bucket_cleaned = args.bucket_cleaned
     bucket_dataset = args.bucket_dataset
     
-    pathlib.Path(f"{BASE_DIR}/data").mkdir(parents=True, exist_ok=True)
-    
-    s3 = boto3.client('s3')
-    s3.create_bucket(Bucket=f'{bucket_dataset}')
-
-    conn = connect(s3_staging_dir=f's3://{bucket_cleaned}', region_name='us-east-1')
-    
-    logger.info(f"Obtendo dados da tabela {project_name}-table do banco de dados {project_name}-db")
-    df = pd.read_sql(f'SELECT * FROM "{project_name}-db"."{project_name}-table" limit 1000;', conn)
-
-    s3f = s3fs.S3FileSystem(anon=False)
-
-    logger.info(f"Salvando dataset")
-    with s3f.open(f'{bucket_dataset}/dataset.csv', 'w') as f:
-        df.to_csv(f)
-    
     logger.info(f"Baixando dataset do bucket: {bucket_dataset}")
     fn = f"{BASE_DIR}/data/dataset.csv"
     s3 = boto3.resource("s3")
@@ -82,8 +66,7 @@ if __name__ == "__main__":
         dtype=merge_two_dicts(columns_dtype, label_column_dtype),
     )
     os.unlink(fn)
-    
-    
+
     df = df[columns_names + [label_column]]
     df = df.dropna(subset=[label_column])
 

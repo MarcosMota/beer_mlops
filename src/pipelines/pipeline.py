@@ -29,7 +29,6 @@ from sagemaker.workflow.condition_step import (
     JsonGet,
 )
 from sagemaker.tuner import (
-    IntegerParameter,
     CategoricalParameter,
     ContinuousParameter,
     HyperparameterTuner,
@@ -372,15 +371,15 @@ def get_pipeline(
     )
 
     pipeline = Pipeline(
-    name="tuning-step-pipeline",
-    parameters=[
-        processing_instance_type,
-        processing_instance_count,
-        training_instance_type,
-        input_data,
-        model_approval_status,
-    ],
-    steps=[step_process, step_tuning, step_create_first, step_create_second, step_eval, step_cond],
-    sagemaker_session=sagemaker_session,
-)
+        name="tuning-step-pipeline",
+        parameters=[
+            processing_instance_type,
+            processing_instance_count,
+            training_instance_type,
+            input_data,
+            model_approval_status,
+        ],
+        steps=[step_process, step_tuning, step_create_first, step_create_second, step_eval, step_cond],
+        sagemaker_session=sagemaker_session,
+    )
     return pipeline

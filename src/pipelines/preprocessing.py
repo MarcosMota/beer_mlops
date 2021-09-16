@@ -29,11 +29,14 @@ def preprocess_fn(split_ratio: float, base_dir='/opt/ml/processing') -> None:
         df['ibu'],
         test_size=split_ratio)
 
-    scaler = StandardScaler()
+    
 
     print('Realializando preprocessamento e feature engineering')
+    scaler = StandardScaler()
     train_features = scaler.fit_transform(X_train)
     test_features = scaler.transform(X_test)
+    
+    
 
     print('Shape do dataset de treino após do preprocessamento: {}'.format(train_features.shape))
     print('Shape do dataset de teste após do preprocessamento: {}'.format(test_features.shape))

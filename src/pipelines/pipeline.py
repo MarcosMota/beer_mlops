@@ -158,7 +158,7 @@ def get_pipeline(
             ProcessingOutput(output_name="train", source="/opt/ml/processing/train"),
             ProcessingOutput(output_name="test", source="/opt/ml/processing/test"),
         ],
-        code="preprocess.py",
+        code="preprocessing.py",
         job_arguments=["--input-data", input_data],
         cache_config=cache_config,
     )

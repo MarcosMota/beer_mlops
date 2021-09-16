@@ -2,10 +2,9 @@
 import json
 import os
 import tarfile
-
 import pandas as pd
+import joblib
 
-from sklearn.externals import joblib
 from sklearn.metrics import mean_squared_error
 from sklearn.metrics import r2_score
 
@@ -30,6 +29,8 @@ if __name__ == "__main__":
     report_dict = {}
     report_dict["mse"] = mean_squared_error(y_test, predictions)
     report_dict["r2"] = r2_score(y_test, predictions)
+    
+    print(f"MSE: {report_dict['mse']} R2: {report_dict['r2']}")
 
     evaluation_output_path = os.path.join("/opt/ml/processing/evaluation", "evaluation.json")
     print("Salvando avaliação em {}".format(evaluation_output_path))

@@ -1,104 +1,66 @@
 import argparse
 import os
-import requests
-import tempfile
-import numpy as np
+import warnings
+
 import pandas as pd
-import boto3
+from sklearn.compose import make_column_transformer
+from sklearn.exceptions import DataConversionWarning
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 
-from sklearn.compose import ColumnTransformer
-from sklearn.impute import SimpleImputer
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
+warnings.filterwarnings(action='ignore', category=DataConversionWarning)
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-logger.addHandler(logging.StreamHandler())
 
-def merge_two_dicts(x, y):
-    z = x.copy()
-    z.update(y)
-    return z
+def preprocess_fn(split_ratio: float, base_dir='/opt/ml/processing') -> None:
+    input_data_path = os.path.join(f'{base_dir}/input', 'dataset.csv')
+    print('Carregando dataset {}'.format(input_data_path))
+    df = pd.read_csv(input_data_path)
 
-BASE_DIR = "/opt/ml/processing"
+    print('Selecionando colunas que serão utilizadas {}')
+    df = df[["target_fg","target_og","ebc","srm","ph","ibu"]]
 
-columns_names = [
-    "target_fg",
-    "target_og",
-    "ebc",
-    "srm",
-    "ph",
-]
-label_column = "ibu"
+    print('Removendo dados ausentes e duplicados')
+    df.dropna(inplace=True)
+    df.drop_duplicates(inplace=True)
 
-columns_dtype = {
-    "target_fg": np.float64,
-    "target_og": np.float64,
-    "ebc": np.float64,
-    "srm": np.float64,
-    "ph": np.float64,
-}
-label_column_dtype = {"ibu": np.float64}
+    print('Separando dados em treino e test em {}'.format(split_ratio))
+    X_train, X_test, y_train, y_test = train_test_split(
+        df.drop('ibu', axis=1),
+        df['ibu'],
+        test_size=split_ratio)
 
-if __name__ == "__main__":
-    logger.debug("Iniciando pŕé-processamento.")
-    
+    scaler = StandardScaler()
+
+    print('Realializando preprocessamento e feature engineering')
+    train_features = scaler.fit_transform(X_train)
+    test_features = scaler.transform(X_test)
+
+    print('Shape do dataset de treino após do preprocessamento: {}'.format(train_features.shape))
+    print('Shape do dataset de teste após do preprocessamento: {}'.format(test_features.shape))
+
+    train_features_output_path = os.path.join(f'{base_dir}/train', 'train_features.csv')
+    train_labels_output_path = os.path.join(f'{base_dir}/train', 'train_labels.csv')
+
+    test_features_output_path = os.path.join(f'{base_dir}/test', 'test_features.csv')
+    test_labels_output_path = os.path.join(f'{base_dir}/test', 'test_labels.csv')
+
+    print('Salvando features de treino em {}'.format(train_features_output_path))
+    pd.DataFrame(train_features).to_csv(train_features_output_path, header=False, index=False)
+
+    print('Salvando features de teste em {}'.format(test_features_output_path))
+    pd.DataFrame(test_features).to_csv(test_features_output_path, header=False, index=False)
+
+    print('Salvando labels de treino em {}'.format(train_labels_output_path))
+    y_train.to_csv(train_labels_output_path, header=False, index=False)
+
+    print('Salvando labels de treino em {}'.format(test_labels_output_path))
+    y_test.to_csv(test_labels_output_path, header=False, index=False)
+
+
+if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--project_name", type=str, required=True)
-    parser.add_argument("--bucket_cleaned", type=str, required=True)
-    parser.add_argument("--bucket_dataset", type=str, required=True)
-    
-    args = parser.parse_args()
-    project_name = args.project_name
-    bucket_cleaned = args.bucket_cleaned
-    bucket_dataset = args.bucket_dataset
-    
-    logger.info(f"Baixando dataset do bucket: {bucket_dataset}")
-    fn = f"{BASE_DIR}/data/dataset.csv"
-    s3 = boto3.resource("s3")
-    s3.Bucket(bucket_dataset).download_file(key, f"{BASE_DIR}/data/dataset.csv")
+    parser.add_argument('--train-test-split-ratio', type=float, default=0.3)
 
-    logger.debug("Carregando dataset.")
-    df = pd.read_csv(
-        fn,
-        header=None,
-        names=columns_names + [label_column],
-        dtype=merge_two_dicts(columns_dtype, label_column_dtype),
-    )
-    os.unlink(fn)
-
-    df = df[columns_names + [label_column]]
-    df = df.dropna(subset=[label_column])
-
-    logger.debug("Criando transformers")
-    numeric_transformer = Pipeline(
-        steps=[
-            ("imputer", SimpleImputer(strategy="median")),
-            ("scaler", StandardScaler())
-        ]
-    )
-
-    preprocess = ColumnTransformer(
-        transformers=[
-            ("num", numeric_transformer, columns_names),
-        ]
-    )
-    
-    logger.debug("Aplicando transformers")
-    y = df.pop(label_column)
-    X_pre = preprocess.fit_transform(df)
-    y_pre = y.to_numpy().reshape(len(y), 1)
-    X = np.concatenate((y_pre, X_pre), axis=1)
-
-    logger.info("Separando datasets de treino, teste e validacao")
-    np.random.shuffle(X)
-    train, validation, test = np.split(X, [int(.7 * len(X)), int(.85 * len(X))])
-
-    logger.info("Writing out datasets to %s.", BASE_DIR)
-    pd.DataFrame(train).to_csv(f"{BASE_DIR}/train/train.csv", header=False, index=False)
-    pd.DataFrame(validation).to_csv(
-        f"{BASE_DIR}/validation/validation.csv", header=False, index=False
-    )
-    pd.DataFrame(test).to_csv(f"{BASE_DIR}/test/test.csv", header=False, index=False)
-    
-    logger.debug("Pŕé-processamento finalizado.")
+    args, _ = parser.parse_known_args()
+    print('Recebendo paramêtros {}'.format(args))
+    preprocess_fn(split_ratio=args.train_test_split_ratio)

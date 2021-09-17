@@ -28,5 +28,3 @@ resource "aws_cloudwatch_log_group" "fn_extraction_log_group" {
   retention_in_days = 14
 }
 
-
-

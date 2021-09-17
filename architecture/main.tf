@@ -16,18 +16,14 @@ provider "aws" {
 }
 
 module "policies" {
-  # When using these modules in your own templates, you will need to use a Git URL with a ref attribute that pins you
-  # to a specific version of the modules, such as the following example:
-  # source = "git::git@github.com:hashicorp/terraform-aws-consul.git//modules/consul-cluster?ref=v0.0.1"
+  # Gerencia todas as policies e roles da arquitetura
   source = "./modules/policies"
   region = var.region
 }
 
 
 module "storage" {
-  # When using these modules in your own templates, you will need to use a Git URL with a ref attribute that pins you
-  # to a specific version of the modules, such as the following example:
-  # source = "git::git@github.com:hashicorp/terraform-aws-consul.git//modules/consul-cluster?ref=v0.0.1"
+  # Gerencia recursos de storage, como S3 e Glue Table 
   source = "./modules/storage"
   project_name = "beer"
 }
@@ -45,9 +41,7 @@ data "archive_file" "fn_transform_zip" {
 }
 
 module "data_ingestion" {
-  # When using these modules in your own templates, you will need to use a Git URL with a ref attribute that pins you
-  # to a specific version of the modules, such as the following example:
-  # source = "git::git@github.com:hashicorp/terraform-aws-consul.git//modules/consul-cluster?ref=v0.0.1"
+  # Gerencia recursos de ingestão de dados, como Kinesis Stream e Firehose
   source = "./modules/data_ingestion"
   project_name = var.project_name
   region = var.region
@@ -73,8 +67,9 @@ module "data_ingestion" {
   }
 }
 
-module "modelling" {
-  source = "./modules/modeling"
+module "machine_learning" {
+  # Gerencia recursos de storage, como S3 e Glue Table 
+  source = "./modules/machine_learning"
   role_sagemake_arn = module.policies.iam_sagemaker_role
   project_name = var.project_name
   repository_url = "https://github.com/MarcosMota/beer_mlops.git"

@@ -6,7 +6,12 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 3.27"
     }
+    random = {
+      source = "hashicorp/random"
+      version = "2.3.0"
+    }
   }
+   
   required_version = ">= 0.14.9"
 }
 
@@ -18,14 +23,19 @@ provider "aws" {
 module "policies" {
   # Gerencia todas as policies e roles da arquitetura
   source = "./modules/policies"
+  
   region = var.region
+  profile = var.profile
 }
 
 
 module "storage" {
   # Gerencia recursos de storage, como S3 e Glue Table 
   source = "./modules/storage"
-  project_name = "beer"
+  
+  project_name = var.project_name
+  region = var.region
+  profile = var.profile
 }
 
 data "archive_file" "fn_extraction_zip" {
@@ -45,6 +55,7 @@ module "data_ingestion" {
   source = "./modules/data_ingestion"
   project_name = var.project_name
   region = var.region
+  profile = var.profile
 
   fn_transform = {
     name = "fn_transform"
@@ -70,8 +81,10 @@ module "data_ingestion" {
 module "machine_learning" {
   # Gerencia recursos de storage, como S3 e Glue Table 
   source = "./modules/machine_learning"
-  role_sagemake_arn = module.policies.iam_sagemaker_role
+
+  region = var.region
+  profile = var.profile
   project_name = var.project_name
   repository_url = "https://github.com/MarcosMota/beer_mlops.git"
-  profile = var.profile
+  role_sagemake_arn = module.policies.iam_sagemaker_role
 }

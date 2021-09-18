@@ -3,6 +3,9 @@ variable "project_name" {
     description = "Nome do projeto"
 }
 variable "profile" {
-    default = "marcosmota"
+  type = string
+}
+
+variable "region" {
   type = string
 }

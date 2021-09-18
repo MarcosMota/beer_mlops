@@ -20,11 +20,12 @@ variable "region" {
   type = string
 }
 
-variable "project_name" {
+variable "profile" {
   type = string
 }
-variable "profile" {
-    default = "marcosmota"
+
+
+variable "project_name" {
   type = string
 }
 

@@ -48,7 +48,7 @@ resource "aws_kinesis_firehose_delivery_stream" "extended_s3_stream_transform" {
         database_name = aws_glue_catalog_database.aws_glue_catalog_database.name
         role_arn      = var.role.firehouse_arn
         table_name    = aws_glue_catalog_table.aws_glue_catalog_table.name
-        region        = "us-east-1"
+        region        = var.region
       }
     }
   }

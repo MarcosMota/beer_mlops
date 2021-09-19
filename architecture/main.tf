@@ -70,6 +70,8 @@ module "data_ingestion" {
   bucket_extraction_arn = module.storage.bucket_extraction_arn
   bucket_transform_arn = module.storage.bucket_transform_arn
 
+  bucket_transform_name = module.storage.bucket_transform_name
+
   role = {
     lambda_arn = module.policies.iam_lambda_role
     lambda_name = module.policies.name_lambda_role

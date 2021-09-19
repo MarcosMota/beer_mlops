@@ -5,3 +5,7 @@ output "bucket_extraction_arn" {
 output "bucket_transform_arn" {
   value = aws_s3_bucket.bucket_transformation.arn
 }
+
+output "bucket_transform_name" {
+ value = aws_s3_bucket.bucket_transformation.id
+}

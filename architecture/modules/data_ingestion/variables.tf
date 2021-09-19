@@ -16,6 +16,10 @@ variable "bucket_extraction_arn" {
   type = string
 }
 
+variable "bucket_transform_name"{
+  type = string
+}
+
 variable "region" {
   type = string
 }

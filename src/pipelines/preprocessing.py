@@ -52,7 +52,7 @@ def save_dataset_processed(X_train, X_test, y_train, y_test):
 
 
 
-def preprocess_fn(df: pd.DataFrame,split_ratio: float) -> dict[np.array, np.array, np.array, np.array]:
+def preprocess_fn(df: pd.DataFrame,split_ratio: float) -> tuple[np.array, np.array, np.array, np.array]:
     print('Separando dados em treino e test em {}'.format(split_ratio))
     X_train, X_test, y_train, y_test = train_test_split(
         df.drop('ibu', axis=1),

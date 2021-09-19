@@ -3,13 +3,12 @@ import os
 import boto3
 import sagemaker
 
-from sagemaker.estimator import Estimator
 from sagemaker.inputs import TrainingInput
 
-from sagemaker.processing import ProcessingInput, ProcessingOutput, Processor, ScriptProcessor
+from sagemaker.processing import ProcessingInput, ProcessingOutput, ScriptProcessor
 
 from sagemaker import Model
-from sagemaker.xgboost import XGBoostPredictor
+from sagemaker.sklearn.estimator import SKLearn
 from sagemaker.sklearn.processing import SKLearnProcessor
 from sagemaker.model_metrics import (
     MetricsSource,
@@ -21,20 +20,25 @@ from sagemaker.workflow.parameters import (
 )
 from sagemaker.workflow.pipeline import Pipeline
 from sagemaker.workflow.properties import PropertyFile
-from sagemaker.workflow.steps import ProcessingStep, TrainingStep, CacheConfig, TuningStep
+from sagemaker.workflow.steps import ProcessingStep, TrainingStep, CacheConfig
 from sagemaker.workflow.step_collections import RegisterModel, CreateModelStep
-from sagemaker.workflow.conditions import ConditionLessThanOrEqualTo
-from sagemaker.workflow.condition_step import (
-    ConditionStep,
-    JsonGet,
-)
-from sagemaker.tuner import (
-    CategoricalParameter,
-    ContinuousParameter,
-    HyperparameterTuner,
-    WarmStartConfig,
-    WarmStartTypes,
-)
+
+from sagemaker.inputs import CreateModelInput
+from sagemaker.workflow.steps import CreateModelStep
+
+from sagemaker.model_metrics import MetricsSource, ModelMetrics
+from sagemaker.workflow.step_collections import RegisterModel
+
+from pyathena import connect
+import pandas as pd
+from io import StringIO 
+
+from sagemaker import image_uris
+
+from sagemaker.inputs import TrainingInput
+from sagemaker.workflow.steps import TrainingStep
+
+
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
@@ -91,37 +95,18 @@ def get_pipeline_custom_tags(new_tags, region, sagemaker_project_arn=None):
 
 
 def get_pipeline(
-        region,
-        sagemaker_project_arn=None,
-        role=None,
-        default_bucket=None,
-        model_package_group_name="BeerPackageGroup",
-        pipeline_name="BeerPipeline",
-        base_job_prefix="Beer",
-):
-    """Gets a SageMaker ML Pipeline instance working with on beer data.
+    role: str,
+    region: str,
+    s3_dataset: str,
+    name: str = 'Beer'):
+    
 
-    Args:
-        region: AWS region to create and run the pipeline.
-        role: IAM role to create and run steps and pipeline.
-        default_bucket: the bucket to use for storing the artifacts
-
-    Returns:
-        an instance of a pipeline
-        :param region:
-        :param role:
-        :param sagemaker_project_arn:
-        :param default_bucket:
-        :param base_job_prefix:
-        :param pipeline_name:
-        :param model_package_group_name:
-    """
+    default_bucket = sagemaker.session.Session().default_bucket()
+    base_job_prefix = name.lower()
     sagemaker_session = get_session(region, default_bucket)
     if role is None:
         role = sagemaker.session.get_execution_role(sagemaker_session)
 
-    # parameters for pipeline execution
-    
     processing_instance_count = ParameterInteger(name="ProcessingInstanceCount", default_value=1)
     processing_instance_type = ParameterString(
         name="ProcessingInstanceType", default_value="ml.m5.xlarge"
@@ -132,195 +117,89 @@ def get_pipeline(
     )
     input_data = ParameterString(
         name="InputDataUrl",
-        default_value=f"s3://beer-dataset/dataset.csv",
-    )
-    model_approval_status = ParameterString(
-        name="ModelApprovalStatus", default_value="PendingManualApproval"
+        default_value=s3_dataset,
     )
 
     cache_config = CacheConfig(enable_caching=True, expire_after="30d")
-    # data wrangling step
 
-    
     sklearn_processor = SKLearnProcessor(
         framework_version="0.23-1",
         instance_type=processing_instance_type,
         instance_count=processing_instance_count,
-        base_job_name=f"{base_job_prefix}/sklearn-beer-preprocess",
+        base_job_name=f"{base_job_prefix}/script-preprocess",
         sagemaker_session=sagemaker_session,
         role=role,
     )
     step_process = ProcessingStep(
-        name="PreprocessBeerDataForHPO",
+        name=f"Preprocess{name}Data",
         processor=sklearn_processor,
+        inputs=[ProcessingInput(source=input_data, destination="/opt/ml/processing/input")],
         outputs=[
             ProcessingOutput(output_name="train", source="/opt/ml/processing/train"),
             ProcessingOutput(output_name="test", source="/opt/ml/processing/test"),
         ],
-        code="preprocessing.py",
-        job_arguments=["--input-data", input_data],
+        code="src/pipelines/preprocessing.py",
+        job_arguments=["--train-test-split-ratio", "0.2"],
         cache_config=cache_config,
     )
 
-    model_path = f"s3://{default_bucket}/{base_job_prefix}/BeerTrain"
 
-    image_uri = sagemaker.image_uris.retrieve(
-        framework="xgboost",
-        region=region,
-        version="1.0-1",
-        py_version="py3",
-        instance_type=training_instance_type,
-    )
 
-    xgb_train = Estimator(
-        image_uri=image_uri,
+    model_path = f"s3://{default_bucket}/{name}Train"
+
+    estimator = SKLearn(
+        entry_point='training.py',
+        framework_version='0.23-1',
+        role=role,
+        instance_count=1, 
         instance_type=training_instance_type,
-        instance_count=1,
         output_path=model_path,
-        base_job_name=f"{base_job_prefix}/beer-train",
-        sagemaker_session=sagemaker_session,
-        role=role,
+        hyperparameters={
+            'max_depth': 2,
+            'n_estimators': 100,
+            'random_state': 46
+        }
     )
 
-    xgb_train.set_hyperparameters(
-        eval_metric="rmse",
-        objective="reg:squarederror",
-        num_round=50,
-        max_depth=5,
-        eta=0.2,
-        gamma=4,
-        min_child_weight=6,
-        subsample=0.7,
-        silent=0,
-    )
 
-    objective_metric_name = "validation:rmse"
-
-    hyperparameter_ranges = {
-        "alpha": ContinuousParameter(0.01, 10, scaling_type="Logarithmic"),
-        "lambda": ContinuousParameter(0.01, 10, scaling_type="Logarithmic"),
-    }
-
-    tuner_log = HyperparameterTuner(
-        xgb_train,
-        objective_metric_name,
-        hyperparameter_ranges,
-        max_jobs=3,
-        max_parallel_jobs=3,
-        strategy="Random",
-        objective_type="Minimize",
-    )
-
-    step_tuning = TuningStep(
-        name="HPTuning",
-        tuner=tuner_log,
+    step_train = TrainingStep(
+        name="{name}Train",
+        estimator=estimator,
         inputs={
             "train": TrainingInput(
                 s3_data=step_process.properties.ProcessingOutputConfig.Outputs["train"].S3Output.S3Uri,
                 content_type="text/csv",
-            ),
-            "validation": TrainingInput(
-                s3_data=step_process.properties.ProcessingOutputConfig.Outputs[
-                    "validation"
-                ].S3Output.S3Uri,
-                content_type="text/csv",
-            ),
+            )
         },
-        cache_config=cache_config,
     )
 
 
-    parent_tuning_job_name = (
-        step_tuning.properties.HyperParameterTuningJobName
-    )  # Use the parent tuning job specific to the use case
-
-    warm_start_config = WarmStartConfig(
-        WarmStartTypes.IDENTICAL_DATA_AND_ALGORITHM, parents={parent_tuning_job_name}
+    image_uri = image_uris.retrieve(
+        framework="sklearn",
+        region=region,
+        version="0.23-1",
+        py_version="py3",
+        instance_type=processing_instance_type,
     )
-
-    tuner_log_warm_start = HyperparameterTuner(
-        xgb_train,
-        objective_metric_name,
-        hyperparameter_ranges,
-        max_jobs=3,
-        max_parallel_jobs=3,
-        strategy="Random",
-        objective_type="Minimize",
-        warm_start_config=warm_start_config,
-    )
-
-    step_tuning_warm_start = TuningStep(
-        name="HPTuningWarmStart",
-        tuner=tuner_log_warm_start,
-        inputs={
-            "train": TrainingInput(
-                s3_data=step_process.properties.ProcessingOutputConfig.Outputs["train"].S3Output.S3Uri,
-                content_type="text/csv",
-            ),
-            "validation": TrainingInput(
-                s3_data=step_process.properties.ProcessingOutputConfig.Outputs[
-                    "validation"
-                ].S3Output.S3Uri,
-                content_type="text/csv",
-            ),
-        },
-        cache_config=cache_config,
-    )
-
-
-    model_bucket_key = f"{default_bucket}/{base_job_prefix}/BeerTrain"
-    best_model = Model(
-        image_uri=image_uri,
-        model_data=step_tuning.get_top_model_s3_uri(top_k=0, s3_bucket=model_bucket_key),
-        sagemaker_session=sagemaker_session,
-        role=role,
-        predictor_cls=XGBoostPredictor,
-    )
-
-    step_create_first = CreateModelStep(
-        name="CreateTopModel",
-        model=best_model,
-        inputs=sagemaker.inputs.CreateModelInput(instance_type="ml.m4.large"),
-    )
-
-    second_best_model = Model(
-        image_uri=image_uri,
-        model_data=step_tuning.get_top_model_s3_uri(top_k=1, s3_bucket=model_bucket_key),
-        sagemaker_session=sagemaker_session,
-        role=role,
-        predictor_cls=XGBoostPredictor,
-    )
-
-    step_create_second = CreateModelStep(
-        name="CreateSecondBestModel",
-        model=second_best_model,
-        inputs=sagemaker.inputs.CreateModelInput(instance_type="ml.m4.large"),
-    )
-
 
     script_eval = ScriptProcessor(
         image_uri=image_uri,
         command=["python3"],
         instance_type=processing_instance_type,
         instance_count=1,
-        base_job_name=f"{base_job_prefix}/script-tuning-step-eval",
-        sagemaker_session=sagemaker_session,
+        base_job_name=f"{name}/scrpt-eval",
         role=role,
     )
 
     evaluation_report = PropertyFile(
-        name="BestTuningModelEvaluationReport",
-        output_name="evaluation",
-        path="evaluation.json",
+        name="EvaluationReport", output_name="evaluation", path="evaluation.json"
     )
-
-    # This can be extended to evaluate multiple models from the HPO step
     step_eval = ProcessingStep(
-        name="EvaluateTopModel",
+        name=f"{name}Eval",
         processor=script_eval,
         inputs=[
             ProcessingInput(
-                source=step_tuning.get_top_model_s3_uri(top_k=0, s3_bucket=model_bucket_key),
+                source=step_train.properties.ModelArtifacts.S3ModelArtifacts,
                 destination="/opt/ml/processing/model",
             ),
             ProcessingInput(
@@ -331,10 +210,26 @@ def get_pipeline(
         outputs=[
             ProcessingOutput(output_name="evaluation", source="/opt/ml/processing/evaluation"),
         ],
-        code="evaluate.py",
+        code="src/pipelines/evaluate.py",
         property_files=[evaluation_report],
-        cache_config=cache_config,
     )
+
+    model = Model(
+        image_uri=image_uri,
+        model_data=step_train.properties.ModelArtifacts.S3ModelArtifacts,
+        sagemaker_session=sagemaker_session,
+        role=role,
+    )
+    inputs = CreateModelInput(
+        instance_type="ml.m5.large",
+        accelerator_type="ml.eia1.medium",
+    )
+    step_create_model = CreateModelStep(
+        name=f"{name}CreateModel",
+        model=model,
+        inputs=inputs,
+    )
+
 
     model_metrics = ModelMetrics(
         model_statistics=MetricsSource(
@@ -344,34 +239,21 @@ def get_pipeline(
             content_type="application/json",
         )
     )
-
-    step_register_best = RegisterModel(
-        name="RegisterBestBeerModel",
-        estimator=xgb_train,
-        model_data=step_tuning.get_top_model_s3_uri(top_k=0, s3_bucket=model_bucket_key),
+    step_register = RegisterModel(
+        name=f"{name}RegisterModel",
+        estimator=estimator,
+        model_data=step_train.properties.ModelArtifacts.S3ModelArtifacts,
         content_types=["text/csv"],
         response_types=["text/csv"],
-        inference_instances=["ml.t2.medium", "ml.m5.large"],
-        transform_instances=["ml.m5.large"],
-        model_package_group_name=model_package_group_name,
+        inference_instances=["ml.t2.medium", "ml.m5.xlarge"],
+        transform_instances=["ml.m5.xlarge"],
+        model_package_group_name=f'{name}-package-group',
         approval_status=model_approval_status,
-    )
-
-    cond_lte = ConditionLessThanOrEqualTo(
-        left=JsonGet(
-            step=step_eval, property_file=evaluation_report, json_path="regression_metrics.mse.value"
-        ),
-        right=6.0,
-    )
-    step_cond = ConditionStep(
-        name="CheckMSEBeerEvaluation",
-        conditions=[cond_lte],
-        if_steps=[step_register_best],
-        else_steps=[],
+        model_metrics=model_metrics,
     )
 
     pipeline = Pipeline(
-        name="tuning-step-pipeline",
+        name="{name}-pipeline",
         parameters=[
             processing_instance_type,
             processing_instance_count,
@@ -379,7 +261,7 @@ def get_pipeline(
             input_data,
             model_approval_status,
         ],
-        steps=[step_process, step_tuning, step_create_first, step_create_second, step_eval, step_cond],
+        steps=[step_process, step_train, step_eval, step_register, step_create_model],
         sagemaker_session=sagemaker_session,
     )
-    return pipeline
+

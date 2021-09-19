@@ -73,18 +73,25 @@ Para rodar este projeto é necessário que tenha as seguintes requisítos:
 
 ## Gerenciamento dos recursos com Terraform
 
-### `make terraform-init`
+### `make project-install`
+Instala todas as dependências do projeto
+
+### `make project-test`
+Executa todos os testes no projeto
+
+
+### `make arch-init`
 Este comando deve ser executado no inicio do projeto, para que faça o download de todas as depêndencias do terraform
 
-### `make terraform-plan`
+### `make arch-plan`
 Mostrará as atualizações que serão realizadas pelo Terraform
 
-### `make terraform-apply`
+### `make arch-apply`
 Aplicará as atualizações mostradas no comando `make terraform-plan` que serão realizadas pelo Terraform.
 
 __Obs:__ Este comando utliza a opção `-auto-approve`, por isso tome cuidado ao executar este comando. 
 
-### `make terraform-destroy`
+### `make arch-destroy`
 Excluirá todos recursos gerenciados pelo Terraform.
 
 <hr>

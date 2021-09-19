@@ -1,13 +1,24 @@
 
 
-terraform-init: 
+
+# Commands terraform
+
+project-install:
+	pip install -r requirements.txt
+
+project-test:
+	echo 'iniciando teste'
+	python -m unittest -v
+
+arch-init: 
 	terraform -chdir=./architecture init
 
-terraform-plan: 
+arch-plan: 
 	terraform -chdir=./architecture plan
 
-terraform-apply: 
+arch-apply: 
 	terraform -chdir=./architecture apply -auto-approve
 
-terraform-destroy: 
+arch-destroy: 
 	terraform -chdir=./architecture destroy -auto-approve
+

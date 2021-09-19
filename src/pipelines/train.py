@@ -28,8 +28,8 @@ def train_fn(model_dir: str, training_dir:str, hyperparameters:dict):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--max_depth', type=bool, default=None)
-    parser.add_argument('--n_estimators', type=float, default=100)
+    parser.add_argument('--max_depth', type=int, default=None)
+    parser.add_argument('--n_estimators', type=int, default=100)
     parser.add_argument('--random_state', type=int, default=None)
     
     parser.add_argument('--model-dir', type=str, default=os.environ['SM_MODEL_DIR'])

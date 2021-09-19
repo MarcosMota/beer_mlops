@@ -5,7 +5,7 @@ from sklearn.ensemble import RandomForestRegressor
 import joblib
 
 
-def train_fn(model_dir: str, training_dir:str):
+def train_fn(model_dir: str, training_dir:str, hyperparameters:dict):
     train_features_data = os.path.join(training_dir, "train_features.csv")
     train_labels_data = os.path.join(training_dir, "train_labels.csv")
 
@@ -16,7 +16,7 @@ def train_fn(model_dir: str, training_dir:str):
     model = RandomForestRegressor(
         max_depth=hyperparameters['max_depth'],
         n_estimators=hyperparameters['n_estimators'],
-        random_state=hyperparameters.['random_state']
+        random_state=hyperparameters['random_state']
     )
 
     print("Treinando modelo")
@@ -28,7 +28,7 @@ def train_fn(model_dir: str, training_dir:str):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--max_depth', type=bool, default=None
+    parser.add_argument('--max_depth', type=bool, default=None)
     parser.add_argument('--n_estimators', type=float, default=100)
     parser.add_argument('--random_state', type=int, default=None)
     
@@ -38,8 +38,9 @@ if __name__ == '__main__':
     args, _ = parser.parse_known_args()
     print('Recebendo paramêtros {}'.format(args))
     hyperparameters = {
-        'max_depth' = max_depth,
-        'n_estimators' = n_estimators,
-        'random_state' = random_state,
+        'max_depth' : args.max_depth,
+        'n_estimators' : args.n_estimators,
+        'random_state' : args.random_state
     }
+
     train_fn(model_dir=args.model_dir, training_dir=args.training, hyperparameters=hyperparameters)

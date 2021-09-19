@@ -18,3 +18,10 @@ resource "aws_s3_bucket" "bucket_extraction" {
 }
 
 
+resource "aws_s3_bucket" "bucket_dataset" {
+  bucket = "dataset-${random_string.resource_code.result}"
+  acl    = "private"
+  force_destroy = true
+}
+
+
